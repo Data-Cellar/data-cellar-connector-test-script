@@ -115,3 +115,34 @@ The script provides detailed logging at each step:
 
 Successful completion displays a preview of the retrieved data.
 
+## Detailed Example
+
+Assume the following participant template `.env` configuration file (shortened for brevity):
+
+```console
+$ cat participant-template/deploy/participants/ctic/.env 
+DOMAIN_NAME=dcserver.cticpoc.com
+PARTICIPANT_NAME="ctic"
+EDC_CONNECTOR_API_KEY="The-Secret-Connector-Api-Key"
+EDC_CONNECTOR_API_KEY_HEADER="X-API-Key"
+RABBITMQ_DEFAULT_USER="guest"
+RABBITMQ_DEFAULT_PASS="Secret-Rabbit-Password"
+```
+
+To fetch the CTIC-FAEN dataset (configured by default), run:
+
+```console
+uv run python main.py --api-auth-key The-Secret-Connector-Api-Key \
+    --connector-id ctic \
+    --connector-host ctic.dcserver.cticpoc.com
+```
+
+Alternatively, you can use RabbitMQ messaging instead of HTTP SSE (assuming the RabbitMQ broker port is publicly exposed):
+
+```console
+uv run python main.py --api-auth-key The-Secret-Connector-Api-Key \
+    --connector-id ctic \
+    --connector-host ctic.dcserver.cticpoc.com \
+    --messaging-method=rabbitmq \
+    --rabbitmq-url=amqp://guest:Secret-Rabbit-Password@localhost:5672
+```
