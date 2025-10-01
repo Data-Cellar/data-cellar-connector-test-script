@@ -137,12 +137,12 @@ uv run python main.py --api-auth-key The-Secret-Connector-Api-Key \
     --connector-host ctic.dcserver.cticpoc.com
 ```
 
-Alternatively, you can use RabbitMQ messaging instead of HTTP SSE (assuming the RabbitMQ broker port is publicly exposed):
+Alternatively, you can use RabbitMQ messaging instead of HTTP SSE (assuming the RabbitMQ broker port in `ctic.dcserver.cticpoc.com` is publicly exposed):
 
 ```console
 uv run python main.py --api-auth-key The-Secret-Connector-Api-Key \
     --connector-id ctic \
     --connector-host ctic.dcserver.cticpoc.com \
     --messaging-method=rabbitmq \
-    --rabbitmq-url=amqp://guest:Secret-Rabbit-Password@localhost:5672
+    --rabbitmq-url=amqp://guest:Secret-Rabbit-Password@ctic.dcserver.cticpoc.com:5672
 ```
