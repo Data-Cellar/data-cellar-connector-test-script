@@ -1,6 +1,8 @@
 # Data Cellar Connector Test Script
 
-A Python script that performs complete contract negotiation and data transfer flow with Data Cellar connectors.
+A Python script that automates contract negotiation and data transfer with Data Cellar connectors.
+
+This tool helps verify that your connector responds correctly and can communicate with other Data Cellar connectors. By default, the arguments are set to connect with the CTIC-FAEN connector.
 
 ## Overview
 
@@ -15,7 +17,7 @@ This script automates the entire data transfer process:
 ## Requirements
 
 - Python 3.11+
-- uv
+- [uv](https://docs.astral.sh/uv/getting-started/installation/)
 
 ## Installation
 
