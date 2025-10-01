@@ -1,0 +1,10 @@
+[project]
+name = "connector-healthcheck-scripts"
+version = "0.1.0"
+description = "Scripts for checking the health of a Data Cellar connector"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "edcpy>=0.10.2",
+    "requests>=2.31.0",
+]
