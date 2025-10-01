@@ -236,7 +236,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "edcpy", specifier = ">=0.10.2" },
+    { name = "edcpy", specifier = ">=0.10.3" },
     { name = "requests", specifier = ">=2.31.0" },
 ]
 
@@ -322,7 +322,7 @@ wheels = [
 
 [[package]]
 name = "edcpy"
-version = "0.10.2"
+version = "0.10.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "coloredlogs" },
@@ -337,9 +337,9 @@ dependencies = [
     { name = "python-slugify" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/97/1c/9a15b283fea5e0c4030d33f6d74582f823065b9b76229f0de81946b361a3/edcpy-0.10.2.tar.gz", hash = "sha256:992fe42b0beb838a17f4117c9ce39fc5db257816f164990f1a578b98db1c5e9b", size = 27284 }
+sdist = { url = "https://files.pythonhosted.org/packages/ea/63/5b84620f06beb223a0a598aa1abc00c63e3641682a79ed3c6af7cfe4b8ae/edcpy-0.10.3.tar.gz", hash = "sha256:8f93cbf018b9b9da20bcd131549a4e741f9e4130a22bff9cbe6d6f37e30c5837", size = 27343 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/16/b9/b44548524c0d344b65b3568e487379e9b448b8b53212dc645611476609a7/edcpy-0.10.2-py3-none-any.whl", hash = "sha256:9a03685a387af60e0ac8ba757b7b7bac3bdff642b9ae6f9145c6eb888e03fae8", size = 28697 },
+    { url = "https://files.pythonhosted.org/packages/90/31/b26d2becabd8b925d1dd52aa88a2835f7f1fb44d3cdb571ab8cc8c05c7ab/edcpy-0.10.3-py3-none-any.whl", hash = "sha256:28ceb37273bd9c3a7911ae9a5675c9f6228f8487ae580242060c97afbbe480a3", size = 28772 },
 ]
 
 [[package]]

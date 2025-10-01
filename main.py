@@ -2,11 +2,15 @@
 Data Cellar connector healthcheck script.
 
 This script performs a healthcheck on a Data Cellar connector by:
-1. Establishing an SSE connection to receive pull credentials
+1. Establishing a connection to receive pull credentials (SSE or RabbitMQ)
 2. Negotiating a contract with a counter-party connector
 3. Starting a data transfer process
-4. Retrieving credentials via SSE
+4. Retrieving credentials via the chosen messaging method
 5. Executing an authenticated data request
+
+The script supports two messaging methods for credential delivery:
+- SSE (Server-Sent Events): HTTP-based streaming connection
+- RabbitMQ: Message broker-based delivery
 """
 
 import argparse
@@ -21,6 +25,7 @@ import coloredlogs
 import edcpy.config
 import httpx
 from edcpy.edc_api import ConnectorController
+from edcpy.messaging import MessagingClient
 
 _logger = logging.getLogger(__name__)
 
@@ -352,6 +357,30 @@ def create_argument_parser() -> argparse.ArgumentParser:
         help="Consumer backend URL",
     )
 
+    parser.add_argument(
+        "--messaging-method",
+        choices=["sse", "rabbitmq"],
+        default="sse",
+        help="Method for receiving pull credentials (SSE or RabbitMQ)",
+    )
+
+    parser.add_argument(
+        "--consumer-id",
+        help="Consumer ID for RabbitMQ messaging (only used with --messaging-method=rabbitmq)",
+    )
+
+    parser.add_argument(
+        "--queue-timeout",
+        type=int,
+        default=60,
+        help="Timeout in seconds for RabbitMQ queue operations (only used with --messaging-method=rabbitmq)",
+    )
+
+    parser.add_argument(
+        "--rabbitmq-url",
+        help="RabbitMQ URL",
+    )
+
     return parser
 
 
@@ -372,6 +401,7 @@ def build_connector_config_from_args(
     participant_id = args.participant_id or args.connector_id
 
     return edcpy.config.AppConfig(
+        rabbit_url=args.rabbitmq_url,
         connector=edcpy.config.AppConfig.Connector(
             connector_id=args.connector_id,
             host=args.connector_host,
@@ -382,7 +412,7 @@ def build_connector_config_from_args(
             public_port=args.connector_port,
             protocol_port=args.connector_port,
             control_port=args.connector_port,
-        )
+        ),
     )
 
 
@@ -407,12 +437,12 @@ async def main(args: argparse.Namespace):
     """
     Main function executing the complete connector healthcheck flow.
 
-    This function orchestrates a full data transfer flow using SSE-based
-    credential delivery:
-    1. Establishes SSE connection for receiving credentials
+    This function orchestrates a full data transfer flow using either SSE or
+    RabbitMQ for credential delivery:
+    1. Establishes connection for receiving credentials (SSE or RabbitMQ)
     2. Negotiates a contract with the counter-party connector
     3. Initiates a pull-based data transfer
-    4. Retrieves transfer credentials via SSE
+    4. Retrieves transfer credentials via chosen method
     5. Executes an authenticated data request
 
     Args:
@@ -422,60 +452,129 @@ async def main(args: argparse.Namespace):
         The response data from the authenticated request
     """
 
-    # Initialize components
-    sse_receiver = SSEPullCredentialsReceiver(args)
+    if args.messaging_method == "rabbitmq":
+        if not args.rabbitmq_url:
+            raise ValueError(
+                "RabbitMQ URL is required when using --messaging-method=rabbitmq"
+            )
+
     connector_config = build_connector_config_from_args(args)
     controller = ConnectorController(config=connector_config)
 
-    try:
-        _logger.info(f"Starting healthcheck for asset: {args.counter_party_dataset_id}")
+    _logger.info(f"Starting healthcheck for asset: {args.counter_party_dataset_id}")
+    _logger.info(f"Using messaging method: {args.messaging_method.upper()}")
 
-        # Step 1: Start listening for SSE events before initiating transfer
-        # This ensures we don't miss the first credential message
-        _logger.info("Step 1: Establishing SSE connection")
-        await sse_receiver.start_listening(args.counter_party_protocol_url)
+    if args.messaging_method == "sse":
+        # Use SSE-based credential delivery
+        sse_receiver = SSEPullCredentialsReceiver(args)
 
-        # Step 2: Negotiate contract with counter-party
-        _logger.info("Step 2: Negotiating contract")
-        transfer_details = await controller.run_negotiation_flow(
-            counter_party_protocol_url=args.counter_party_protocol_url,
-            counter_party_connector_id=args.counter_party_connector_id,
-            asset_query=args.counter_party_dataset_id,
-        )
+        try:
+            # Step 1: Start listening for SSE events before initiating transfer
+            # This ensures we don't miss the first credential message
+            _logger.info("Step 1: Establishing SSE connection")
+            await sse_receiver.start_listening(args.counter_party_protocol_url)
 
-        # Step 3: Initiate pull-based data transfer
-        _logger.info("Step 3: Starting transfer process")
-        transfer_id = await controller.run_transfer_flow(
-            transfer_details=transfer_details, is_provider_push=False
-        )
-        _logger.info(f"Transfer process ID: {transfer_id}")
+            # Step 2: Negotiate contract with counter-party
+            _logger.info("Step 2: Negotiating contract")
 
-        # Step 4: Await credentials via SSE (either already received or wait for them)
-        _logger.info("Step 4: Awaiting transfer credentials via SSE")
-        pull_message = await sse_receiver.get_credentials(transfer_id)
-
-        # Step 5: Execute authenticated data request using received credentials
-        _logger.info("Step 5: Executing authenticated data request")
-        async with httpx.AsyncClient() as client:
-            # IMPORTANT: Normalize URL to include trailing slash (required by some endpoints)
-            pull_message["request_args"]["url"] = ensure_url_ends_with_slash(
-                pull_message["request_args"]["url"]
+            transfer_details = await controller.run_negotiation_flow(
+                counter_party_protocol_url=args.counter_party_protocol_url,
+                counter_party_connector_id=args.counter_party_connector_id,
+                asset_query=args.counter_party_dataset_id,
             )
 
-            response = await client.request(**pull_message["request_args"])
-            data = response.text
+            # Step 3: Initiate pull-based data transfer
+            _logger.info("Step 3: Starting transfer process")
 
+            transfer_id = await controller.run_transfer_flow(
+                transfer_details=transfer_details, is_provider_push=False
+            )
+
+            _logger.info(f"Transfer process ID: {transfer_id}")
+
+            # Step 4: Await credentials via SSE (either already received or wait for them)
+            _logger.info("Step 4: Awaiting transfer credentials via SSE")
+            pull_message = await sse_receiver.get_credentials(transfer_id)
+
+            # Step 5: Execute authenticated data request using received credentials
+            _logger.info("Step 5: Executing authenticated data request")
+            async with httpx.AsyncClient() as client:
+                # IMPORTANT: Normalize URL to include trailing slash (required by some endpoints)
+                pull_message["request_args"]["url"] = ensure_url_ends_with_slash(
+                    pull_message["request_args"]["url"]
+                )
+
+                response = await client.request(**pull_message["request_args"])
+                data = response.text
+
+                _logger.info(
+                    "Healthcheck completed successfully ✅\n--- Response preview ---\n%s\n--- End of preview ---",
+                    pprint.pformat(data, width=100, compact=True)[:1024],
+                )
+
+                return data
+
+        finally:
+            # Always clean up the SSE listener, even if an error occurred
+            _logger.debug("Cleaning up SSE listener")
+            await sse_receiver.stop_listening()
+
+    else:
+        consumer_id = args.consumer_id or "healthcheck-pull-consumer"
+
+        messaging_client = MessagingClient(
+            consumer_id=consumer_id, config=connector_config
+        )
+
+        # Start RabbitMQ consumer to receive credentials
+        async with messaging_client.pull_consumer(
+            timeout=args.queue_timeout
+        ) as consumer:
             _logger.info(
-                "Healthcheck completed successfully ✅\n--- Response preview ---\n%s\n--- End of preview ---",
-                pprint.pformat(data, width=100, compact=True)[:1024],
+                "Step 1: RabbitMQ consumer started, ready to receive pull credentials"
             )
 
-            return data
+            # Step 2: Negotiate contract with counter-party
+            _logger.info("Step 2: Negotiating contract")
 
-    finally:
-        # Always clean up the SSE listener, even if an error occurred
-        _logger.debug("Cleaning up SSE listener")
-        await sse_receiver.stop_listening()
+            transfer_details = await controller.run_negotiation_flow(
+                counter_party_protocol_url=args.counter_party_protocol_url,
+                counter_party_connector_id=args.counter_party_connector_id,
+                asset_query=args.counter_party_dataset_id,
+            )
+
+            # Step 3: Initiate pull-based data transfer
+            _logger.info("Step 3: Starting transfer process")
+
+            transfer_id = await controller.run_transfer_flow(
+                transfer_details=transfer_details, is_provider_push=False
+            )
+
+            _logger.info(f"Transfer process ID: {transfer_id}")
+
+            # Step 4: Await credentials via RabbitMQ
+            _logger.info("Step 4: Awaiting transfer credentials via RabbitMQ")
+            async with consumer.wait_for_message(
+                timeout=args.queue_timeout
+            ) as http_pull_message:
+                # Step 5: Execute authenticated data request using received credentials
+                _logger.info("Step 5: Executing authenticated data request")
+
+                async with httpx.AsyncClient() as client:
+                    # IMPORTANT: Normalize URL to include trailing slash (required by some endpoints)
+                    request_args = {**http_pull_message.request_args}
+                    request_args["url"] = ensure_url_ends_with_slash(
+                        request_args["url"]
+                    )
+                    response = await client.request(**request_args)
+                    data = response.text
+
+                    _logger.info(
+                        "Healthcheck completed successfully ✅\n--- Response preview ---\n%s\n--- End of preview ---",
+                        pprint.pformat(data, width=100, compact=True)[:1024],
+                    )
+
+                    return data
 
 
 if __name__ == "__main__":
