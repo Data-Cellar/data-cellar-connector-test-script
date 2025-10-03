@@ -73,11 +73,11 @@ uv run python main.py \
 
 ### Counter-Party Configuration
 
-| Argument                       | Default                                                | Description                                                    |
-| ------------------------------ | ------------------------------------------------------ | -------------------------------------------------------------- |
-| `--counter-party-protocol-url` | `https://ctic.dcserver.cticpoc.com/protocol`           | Counter-party Data Cellar connector protocol URL               |
-| `--counter-party-connector-id` | `ctic`                                                 | Counter-party Data Cellar connector ID                         |
-| `--counter-party-dataset-id`   | `GET-api-dataset-9fe2f7c3-4dce-4964-8e7d-2f0b32c343fe` | ID of the dataset to transfer from the counter-party connector |
+| Argument                       | Default                                      | Description                                                                                  |
+| ------------------------------ | -------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `--counter-party-protocol-url` | `https://ctic.dcserver.cticpoc.com/protocol` | Counter-party Data Cellar connector protocol URL                                             |
+| `--counter-party-connector-id` | `ctic`                                       | Counter-party Data Cellar connector ID                                                       |
+| `--counter-party-dataset-id`   | None (randomly selected)                     | ID of the dataset to transfer (if not provided, a random GET-api-* dataset will be selected) |
 
 ### Connector Configuration
 
