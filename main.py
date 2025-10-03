@@ -18,6 +18,7 @@ import asyncio
 import json
 import logging
 import pprint
+import random
 from typing import Dict, Optional
 from urllib.parse import urlparse
 
@@ -325,8 +326,8 @@ def create_argument_parser() -> argparse.ArgumentParser:
 
     parser.add_argument(
         "--counter-party-dataset-id",
-        help="ID of the dataset to transfer",
-        default="GET-api-dataset-9fe2f7c3-4dce-4964-8e7d-2f0b32c343fe",
+        help="ID of the dataset to transfer (if not provided, a random GET-api-* dataset will be selected)",
+        default=None,
     )
 
     parser.add_argument(
@@ -445,6 +446,47 @@ def ensure_url_ends_with_slash(url: str) -> str:
     return url.rstrip("/") + "/"
 
 
+async def select_random_dataset(
+    controller: ConnectorController, protocol_url: str
+) -> str:
+    """
+    Fetch the counter-party catalogue and select a random GET-api-* dataset.
+
+    Args:
+        controller: ConnectorController instance
+        protocol_url: Counter-party protocol URL
+
+    Returns:
+        Dataset ID of a randomly selected GET-api-* dataset
+
+    Raises:
+        ValueError: If no GET-api-* datasets are found in the catalogue
+    """
+
+    _logger.info("Fetching counter-party catalogue to select a random dataset")
+
+    # Fetch the catalogue from the counter-party
+    catalog = await controller.fetch_catalog(protocol_url)
+
+    # Filter datasets that start with "GET-api-"
+    get_api_datasets = [
+        dataset
+        for dataset in catalog.datasets
+        if dataset.get("@id", "").startswith("GET-api-")
+    ]
+
+    if not get_api_datasets:
+        raise ValueError("No GET-api-* datasets found in counter-party catalogue")
+
+    # Select a random dataset
+    selected_dataset = random.choice(get_api_datasets)
+    dataset_id = selected_dataset.get("@id")
+
+    _logger.info(f"Randomly selected dataset: {dataset_id}")
+
+    return dataset_id
+
+
 async def negotiate_contract(
     controller: ConnectorController,
     protocol_url: str,
@@ -549,12 +591,20 @@ async def run_data_transfer_with_sse(
         _logger.info("Step 1: Establishing SSE connection")
         await sse_receiver.start_listening(args.counter_party_protocol_url)
 
+        # Determine dataset ID (select random if not provided)
+        dataset_id = args.counter_party_dataset_id
+
+        if dataset_id is None:
+            dataset_id = await select_random_dataset(
+                controller, args.counter_party_protocol_url
+            )
+
         # Step 2: Negotiate contract
         transfer_details = await negotiate_contract(
             controller,
             args.counter_party_protocol_url,
             args.counter_party_connector_id,
-            args.counter_party_dataset_id,
+            dataset_id,
         )
 
         # Step 3: Initiate transfer
@@ -598,12 +648,20 @@ async def run_data_transfer_with_rabbitmq(
             "Step 1: RabbitMQ consumer started, ready to receive pull credentials"
         )
 
+        # Determine dataset ID (select random if not provided)
+        dataset_id = args.counter_party_dataset_id
+
+        if dataset_id is None:
+            dataset_id = await select_random_dataset(
+                controller, args.counter_party_protocol_url
+            )
+
         # Step 2: Negotiate contract
         transfer_details = await negotiate_contract(
             controller,
             args.counter_party_protocol_url,
             args.counter_party_connector_id,
-            args.counter_party_dataset_id,
+            dataset_id,
         )
 
         # Step 3: Initiate transfer
@@ -648,7 +706,15 @@ async def main(args: argparse.Namespace):
     connector_config = build_connector_config_from_args(args)
     controller = ConnectorController(config=connector_config)
 
-    _logger.info(f"Starting data transfer for asset: {args.counter_party_dataset_id}")
+    if args.counter_party_dataset_id:
+        _logger.info(
+            f"Starting data transfer for asset: {args.counter_party_dataset_id}"
+        )
+    else:
+        _logger.info(
+            "Starting data transfer (dataset will be randomly selected from catalogue)"
+        )
+
     _logger.info(f"Using messaging method: {args.messaging_method.upper()}")
 
     # Route to appropriate messaging implementation
