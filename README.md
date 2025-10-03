@@ -27,9 +27,9 @@ graph TD
   YourConnector[Your Connector]
 
   %% Flow
-  App -->|Contract Negotiation<br/>& Data Transfer| YourConnector
+  App -->|Contract Negotiation<br/>& Transfer Process| YourConnector
   YourConnector <-->|Dataspace Protocol| Provider
-  YourConnector -->|Credentials result from the contract negotiation and data transfer| App
+  YourConnector -->|Credentials result from the contract negotiation and transfer process| App
   App -->|HTTP request with credentials| Provider --> DataSource
 
   %% Styling
