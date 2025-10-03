@@ -185,12 +185,12 @@ deploy/participants/<your-participant-name>/.env
 
 **What's my connector host URL?**
 
-Your connector host follows this pattern: `https://<your-participant-name>.<your-base-domain>`
+Your connector host follows this pattern: `<your-participant-name>.<your-base-domain>`
 
 For example, if your participant name is `ctic` and your base domain is `dcserver.cticpoc.com`, your connector host would be:
 
 ```
-https://ctic.dcserver.cticpoc.com
+ctic.dcserver.cticpoc.com
 ```
 
 **Should I use RabbitMQ or HTTP SSE?**
