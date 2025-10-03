@@ -14,6 +14,32 @@ This script automates the entire data transfer process:
 4. **Receive credentials** via chosen messaging method
 5. **Data transfer** to retrieve the data
 
+This script acts as your *Application* in the diagram below, automating contract negotiation and data transfer through your *Connector*. It uses the obtained credentials to fetch data from the provider's data source.
+
+```mermaid
+graph TD
+  %% External
+  Provider[Provider Connector<br/>Proxy to Data Source]
+  DataSource[Provider Data Source API]
+
+  %% Your side
+  App[Your Application]
+  YourConnector[Your Connector]
+
+  %% Flow
+  App -->|Contract Negotiation<br/>& Data Transfer| YourConnector
+  YourConnector <-->|Dataspace Protocol| Provider
+  YourConnector -->|Credentials result from the contract negotiation and data transfer| App
+  App -->|HTTP request with credentials| Provider --> DataSource
+
+  %% Styling
+  classDef external fill:#e1f5fe
+  classDef yours fill:#f3e5f5
+
+  class Provider,DataSource external
+  class App,YourConnector yours
+```
+
 ## Requirements
 
 - Python 3.11+
@@ -146,3 +172,29 @@ uv run python main.py --api-auth-key The-Secret-Connector-Api-Key \
     --messaging-method=rabbitmq \
     --rabbitmq-url=amqp://guest:Secret-Rabbit-Password@ctic.dcserver.cticpoc.com:5672
 ```
+
+## FAQs
+
+**Where can I find my connector's API authentication key?**
+
+Your API authentication key is a secret value stored in your participant's dotenv configuration file. You can find it at:
+
+```
+deploy/participants/<your-participant-name>/.env
+```
+
+**What's my connector host URL?**
+
+Your connector host follows this pattern: `https://<your-participant-name>.<your-base-domain>`
+
+For example, if your participant name is `ctic` and your base domain is `dcserver.cticpoc.com`, your connector host would be:
+
+```
+https://ctic.dcserver.cticpoc.com
+```
+
+**Should I use RabbitMQ or HTTP SSE?**
+
+For most use cases, we recommend **HTTP SSE** as it's simpler to set up and configure. 
+
+Choose RabbitMQ only if you have advanced requirements that need more control over message handling. If you're unsure which to pick, HTTP SSE is likely the better choice for your needs.
