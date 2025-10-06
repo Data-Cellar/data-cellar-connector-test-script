@@ -1,0 +1,17 @@
+services:
+  connector-healthcheck:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: connector-healthcheck
+    command: >
+      --api-auth-key "${API_AUTH_KEY}"
+      --connector-id "${CONNECTOR_ID}"
+      --connector-host "${CONNECTOR_HOST}"
+      --counter-party-protocol-url "${COUNTER_PARTY_PROTOCOL_URL:-https://ctic.dcserver.cticpoc.com/protocol}"
+      --counter-party-connector-id "${COUNTER_PARTY_CONNECTOR_ID:-ctic}"
+      --messaging-method "${MESSAGING_METHOD:-sse}"
+      --log-level "${LOG_LEVEL:-INFO}"
+    environment:
+      PYTHONUNBUFFERED: 1
+    restart: unless-stopped
