@@ -12,6 +12,6 @@ services:
       --counter-party-connector-id "${COUNTER_PARTY_CONNECTOR_ID:-ctic}"
       --messaging-method "${MESSAGING_METHOD:-sse}"
       --log-level "${LOG_LEVEL:-INFO}"
-    environment:
-      PYTHONUNBUFFERED: 1
-    restart: unless-stopped
+      ${HEALTHCHECKS_URL:+--healthchecks-url "${HEALTHCHECKS_URL}"}
+      ${INTERVAL:+--interval "${INTERVAL}"}
+    restart: on-failure

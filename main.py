@@ -394,6 +394,17 @@ def create_argument_parser() -> argparse.ArgumentParser:
         help="RabbitMQ URL",
     )
 
+    parser.add_argument(
+        "--healthchecks-url",
+        help="Healthchecks.io URL to ping after successful data transfer (optional)",
+    )
+
+    parser.add_argument(
+        "--interval",
+        type=int,
+        help="Interval in seconds to run the transfer process in a loop (optional)",
+    )
+
     return parser
 
 
@@ -570,6 +581,30 @@ async def execute_authenticated_request(request_args: dict) -> str:
         return data
 
 
+async def ping_healthchecks(healthchecks_url: str):
+    """
+    Ping a healthchecks.io URL to signal successful data transfer.
+
+    Args:
+        healthchecks_url: The healthchecks.io URL to ping
+    """
+
+    try:
+        _logger.info(f"Pinging healthchecks.io: {healthchecks_url}")
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get(healthchecks_url)
+
+            if response.status_code == HTTP_STATUS_OK:
+                _logger.info("Healthcheck ping successful ✅")
+            else:
+                _logger.warning(
+                    f"Healthcheck ping returned status code: {response.status_code}"
+                )
+    except Exception as e:
+        _logger.error(f"Failed to ping healthchecks.io: {e}", exc_info=True)
+
+
 async def run_data_transfer_with_sse(
     args: argparse.Namespace, controller: ConnectorController
 ) -> str:
@@ -677,17 +712,9 @@ async def run_data_transfer_with_rabbitmq(
             return await execute_authenticated_request(http_pull_message.request_args)
 
 
-async def main(args: argparse.Namespace):
+async def run_transfer_once(args: argparse.Namespace) -> str:
     """
-    Main function executing the complete connector data transfer flow.
-
-    This function orchestrates a full data transfer flow using either SSE or
-    RabbitMQ for credential delivery:
-    1. Establishes connection for receiving credentials (SSE or RabbitMQ)
-    2. Negotiates a contract with the counter-party connector
-    3. Initiates a pull-based data transfer
-    4. Retrieves transfer credentials via chosen method
-    5. Executes an authenticated data request
+    Execute a single data transfer operation.
 
     Args:
         args: Parsed command-line arguments
@@ -719,9 +746,53 @@ async def main(args: argparse.Namespace):
 
     # Route to appropriate messaging implementation
     if args.messaging_method == "sse":
-        return await run_data_transfer_with_sse(args, controller)
+        data = await run_data_transfer_with_sse(args, controller)
     else:
-        return await run_data_transfer_with_rabbitmq(args, controller)
+        data = await run_data_transfer_with_rabbitmq(args, controller)
+
+    # Ping healthchecks.io if URL is provided
+    if args.healthchecks_url:
+        await ping_healthchecks(args.healthchecks_url)
+
+    return data
+
+
+async def main(args: argparse.Namespace):
+    """
+    Main function executing the complete connector data transfer flow.
+
+    This function orchestrates a full data transfer flow using either SSE or
+    RabbitMQ for credential delivery:
+    1. Establishes connection for receiving credentials (SSE or RabbitMQ)
+    2. Negotiates a contract with the counter-party connector
+    3. Initiates a pull-based data transfer
+    4. Retrieves transfer credentials via chosen method
+    5. Executes an authenticated data request
+    6. Optionally pings healthchecks.io on success
+    7. Optionally loops every N seconds if interval is specified
+
+    Args:
+        args: Parsed command-line arguments
+
+    Returns:
+        The response data from the last successful authenticated request
+    """
+
+    # If interval is specified, run in a loop
+    if args.interval:
+        _logger.info(f"Running in loop mode with interval: {args.interval} seconds")
+
+        while True:
+            try:
+                await run_transfer_once(args)
+            except Exception as e:
+                _logger.error(f"Transfer failed: {e}", exc_info=True)
+
+            _logger.info(f"Waiting {args.interval} seconds before next transfer...")
+            await asyncio.sleep(args.interval)
+    else:
+        # Run once and return
+        return await run_transfer_once(args)
 
 
 if __name__ == "__main__":
