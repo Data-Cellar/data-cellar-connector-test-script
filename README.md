@@ -1,5 +1,7 @@
 # Data Cellar Connector Test Script
 
+![Data Cellar CTIC-FAEN Connector](https://img.shields.io/endpoint?url=https%3A%2F%2Fhealthchecks.io%2Fb%2F2%2F54554f9e-d1d8-4b61-8683-91051fac904d.shields)
+
 A Python script that automates contract negotiation and data transfer with Data Cellar connectors.
 
 This tool helps verify that your connector responds correctly and can communicate with other Data Cellar connectors. By default, the arguments are set to connect with the CTIC-FAEN connector.
