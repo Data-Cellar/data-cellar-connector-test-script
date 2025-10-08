@@ -1,0 +1,138 @@
+version: "3"
+
+# Load environment variables from .env.local (gitignored) or .env.default
+# .env.local takes precedence if it exists
+dotenv: [.env.local, .env.default]
+
+vars:
+  # Docker Compose project names for each counter-party connector
+  CTIC_FAEN_PROJECT: healthcheck-ctic-faen
+  CFOAT_PROJECT: healthcheck-cfoat
+
+tasks:
+  #
+  # Connector CTIC_FAEN tasks
+  #
+  connector-ctic-faen:up:
+    desc: Start CTIC_FAEN healthcheck service
+    cmds:
+      - |
+        COMPOSE_PROJECT_NAME={{.CTIC_FAEN_PROJECT}} \
+        CONTAINER_NAME=${CTIC_FAEN_NAME} \
+        API_AUTH_KEY=${API_AUTH_KEY} \
+        CONNECTOR_ID=${CONNECTOR_ID} \
+        CONNECTOR_HOST=${CONNECTOR_HOST} \
+        COUNTER_PARTY_PROTOCOL_URL=${CTIC_FAEN_COUNTER_PARTY_PROTOCOL_URL} \
+        COUNTER_PARTY_CONNECTOR_ID=${CTIC_FAEN_COUNTER_PARTY_CONNECTOR_ID} \
+        HEALTHCHECKS_URL=${CTIC_FAEN_HEALTHCHECKS_URL} \
+        INTERVAL=${CTIC_FAEN_INTERVAL} \
+        docker compose up -d --build
+
+  connector-ctic-faen:down:
+    desc: Stop CTIC_FAEN healthcheck service
+    cmds:
+      - COMPOSE_PROJECT_NAME={{.CTIC_FAEN_PROJECT}} docker compose down
+
+  connector-ctic-faen:logs:
+    desc: Show logs for CTIC_FAEN healthcheck
+    cmds:
+      - COMPOSE_PROJECT_NAME={{.CTIC_FAEN_PROJECT}} docker compose logs -f
+
+  connector-ctic-faen:restart:
+    desc: Restart CTIC_FAEN healthcheck service
+    cmds:
+      - task: connector-ctic-faen:down
+      - task: connector-ctic-faen:up
+
+  connector-ctic-faen:status:
+    desc: Show status of CTIC_FAEN healthcheck
+    cmds:
+      - COMPOSE_PROJECT_NAME={{.CTIC_FAEN_PROJECT}} docker compose ps
+
+  #
+  # Connector CFOAT tasks
+  #
+  connector-cfoat:up:
+    desc: Start CFOAT healthcheck service
+    cmds:
+      - |
+        COMPOSE_PROJECT_NAME={{.CFOAT_PROJECT}} \
+        CONTAINER_NAME=${CFOAT_NAME} \
+        API_AUTH_KEY=${API_AUTH_KEY} \
+        CONNECTOR_ID=${CONNECTOR_ID} \
+        CONNECTOR_HOST=${CONNECTOR_HOST} \
+        COUNTER_PARTY_PROTOCOL_URL=${CFOAT_COUNTER_PARTY_PROTOCOL_URL} \
+        COUNTER_PARTY_CONNECTOR_ID=${CFOAT_COUNTER_PARTY_CONNECTOR_ID} \
+        HEALTHCHECKS_URL=${CFOAT_HEALTHCHECKS_URL} \
+        INTERVAL=${CFOAT_INTERVAL} \
+        docker compose up -d --build
+
+  connector-cfoat:down:
+    desc: Stop CFOAT healthcheck service
+    cmds:
+      - COMPOSE_PROJECT_NAME={{.CFOAT_PROJECT}} docker compose down
+
+  connector-cfoat:logs:
+    desc: Show logs for CFOAT healthcheck
+    cmds:
+      - COMPOSE_PROJECT_NAME={{.CFOAT_PROJECT}} docker compose logs -f
+
+  connector-cfoat:restart:
+    desc: Restart CFOAT healthcheck service
+    cmds:
+      - task: connector-cfoat:down
+      - task: connector-cfoat:up
+
+  connector-cfoat:status:
+    desc: Show status of CFOAT healthcheck
+    cmds:
+      - COMPOSE_PROJECT_NAME={{.CFOAT_PROJECT}} docker compose ps
+
+  #
+  # Bulk operations
+  #
+  all:up:
+    desc: Start all connector healthcheck services
+    cmds:
+      - task: connector-ctic-faen:up
+      - task: connector-cfoat:up
+
+  all:down:
+    desc: Stop all connector healthcheck services
+    cmds:
+      - task: connector-ctic-faen:down
+      - task: connector-cfoat:down
+
+  all:restart:
+    desc: Restart all connector healthcheck services
+    cmds:
+      - task: all:down
+      - task: all:up
+
+  all:status:
+    desc: Show status of all connector healthcheck services
+    cmds:
+      - docker compose ps
+
+  all:logs:
+    desc: Show logs for all connectors
+    cmds:
+      - |
+        echo "=== CTIC_FAEN logs ===" && \
+        COMPOSE_PROJECT_NAME={{.CTIC_FAEN_PROJECT}} docker compose logs --tail=50 && \
+        echo "" && \
+        echo "=== CFOAT logs ===" && \
+        COMPOSE_PROJECT_NAME={{.CFOAT_PROJECT}} docker compose logs --tail=50
+
+  #
+  # Utility tasks
+  #
+  build:
+    desc: Build the Docker image
+    cmds:
+      - docker compose build
+
+  clean:
+    desc: Remove all containers and images
+    cmds:
+      - docker compose down --rmi all -v

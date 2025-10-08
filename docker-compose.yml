@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: connector-healthcheck
+    container_name: ${CONTAINER_NAME:-connector-healthcheck}
     command: >
       --api-auth-key "${API_AUTH_KEY}"
       --connector-id "${CONNECTOR_ID}"

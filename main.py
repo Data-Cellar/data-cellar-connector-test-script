@@ -40,6 +40,10 @@ SSE_WRITE_TIMEOUT = 5.0
 SSE_POOL_TIMEOUT = 5.0
 CREDENTIALS_WAIT_TIMEOUT = 60.0
 DEFAULT_QUEUE_TIMEOUT = 60
+DATA_REQUEST_CONNECT_TIMEOUT = 10.0
+DATA_REQUEST_READ_TIMEOUT = 120.0
+DATA_REQUEST_WRITE_TIMEOUT = 10.0
+DATA_REQUEST_POOL_TIMEOUT = 10.0
 
 # Default configuration values
 DEFAULT_CONNECTOR_PORT = 443
@@ -567,7 +571,15 @@ async def execute_authenticated_request(request_args: dict) -> str:
     request_args = {**request_args}
     request_args["url"] = ensure_url_ends_with_slash(request_args["url"])
 
-    async with httpx.AsyncClient() as client:
+    # Configure timeout for data transfer requests (can be long-running)
+    timeout = httpx.Timeout(
+        connect=DATA_REQUEST_CONNECT_TIMEOUT,
+        read=DATA_REQUEST_READ_TIMEOUT,
+        write=DATA_REQUEST_WRITE_TIMEOUT,
+        pool=DATA_REQUEST_POOL_TIMEOUT,
+    )
+
+    async with httpx.AsyncClient(timeout=timeout) as client:
         response = await client.request(**request_args)
         data = response.text
 
