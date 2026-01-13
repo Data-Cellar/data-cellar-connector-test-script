@@ -266,7 +266,9 @@ class SSEPullCredentialsReceiver:
             self._futures[transfer_id] = future
 
         try:
-            return await asyncio.wait_for(future, timeout=timeout)
+            credentials = await asyncio.wait_for(future, timeout=timeout)
+            _logger.debug(f"Received credentials:\n%s", credentials)
+            return credentials
         except asyncio.TimeoutError as exc:
             raise TimeoutError(
                 f"Timeout ({timeout}s) waiting for credentials for transfer: {transfer_id}"
